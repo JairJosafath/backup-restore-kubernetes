@@ -1,0 +1,44 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: restored-db
+spec:
+  selector:
+    matchLabels:
+      app: restored-db
+  serviceName: restored-db
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: restored-db
+    spec:
+      containers:
+        - name: restored-db
+          image: postgres
+          ports:
+            - containerPort: 5432
+              name: web
+          volumeMounts:
+            - name: restored-db-storage
+              mountPath: /var/lib/postgresql/data
+          env:
+            - name: POSTGRES_DB
+              value: postgres
+            - name: POSTGRES_USER
+              value: postgres
+            - name: POSTGRES_PASSWORD
+              value: postgres
+  volumeClaimTemplates:
+    - metadata:
+        name: restored-db-storage
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 100Mi
+        storageClassName: csi-hostpath-sc
+        dataSource:
+          kind: VolumeSnapshot
+          name: snapshot-1727636976
+          apiGroup: snapshot.storage.k8s.io

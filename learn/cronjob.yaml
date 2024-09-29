@@ -1,0 +1,51 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: backuper
+spec:
+  schedule: "20 * * * *"
+
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          serviceAccountName: backuper
+          containers:
+            - name: hello
+              image: alpine/curl
+              imagePullPolicy: IfNotPresent
+              ## Point to the internal API server hostname
+              # APISERVER=https://kubernetes.default.svc
+
+              # # Path to ServiceAccount token
+              # SERVICEACCOUNT=/var/run/secrets/kubernetes.io/serviceaccount
+
+              # # Read this Pod's namespace
+              # NAMESPACE=$(cat ${SERVICEACCOUNT}/namespace)
+
+              # # Read the ServiceAccount bearer token
+              # TOKEN=$(cat ${SERVICEACCOUNT}/token)
+
+              # # Reference the internal certificate authority (CA)
+              # CACERT=${SERVICEACCOUNT}/ca.crt
+
+              # # Explore the API with TOKEN
+              # curl --cacert ${CACERT} --header "Authorization: Bearer ${TOKEN}" -X GET ${APISERVER}/api
+
+              # create a volumesnapshot of the postgres-sts
+              # curl --cacert ${CACERT} --header "Authorization: Bearer ${TOKEN}" -X POST ${APISERVER}/apis/snapshot.storage.k8s.io/v1beta1/namespaces/${NAMESPACE}/volumesnapshots --data '{"apiVersion": "snapshot.storage.k8s.io/v1beta1", "kind": "VolumeSnapshot", "metadata": {"name": "postgres-snapshot"}, "spec": {"source": {"persistentVolumeClaimName": "postgres-storage"}}}'
+              command: ["/bin/sh"]
+              args:
+                - -c
+                - |
+                  APISERVER=https://kubernetes.default.svc
+                  SERVICEACCOUNT=/var/run/secrets/kubernetes.io/serviceaccount
+                  NAMESPACE=$(cat ${SERVICEACCOUNT}/namespace)
+                  TOKEN=$(cat ${SERVICEACCOUNT}/token)
+                  CACERT=${SERVICEACCOUNT}/ca.crt
+                  NAME=snapshot-$(date +%s)
+                  curl --cacert ${CACERT} --header "Authorization: Bearer ${TOKEN}" --header "Content-Type: application/json" \
+                  -X POST ${APISERVER}/apis/snapshot.storage.k8s.io/v1/namespaces/${NAMESPACE}/volumesnapshots \
+                  --data '{"apiVersion": "snapshot.storage.k8s.io/v1", "kind": "VolumeSnapshot", "metadata": {"name": "'$NAME'"}, "spec": {"source": {"persistentVolumeClaimName": "postgres-storage-postgres-sts-0"}, "volumeSnapshotClassName": "csi-hostpath-snapclass"}}'
+
+          restartPolicy: OnFailure
